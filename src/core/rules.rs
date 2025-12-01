@@ -54,21 +54,19 @@ impl Matcher {
             return true;
         }
 
-        let ip_match = self
-            .ip_cidrs
-            .iter()
-            .any(|cidr| cidr.contains(&ctx.destination.ip()))
-            || ctx
-                .destination
-                .ip()
-                .to_canonical()
-                .and_then(|canonical| canonical.as_ipv4())
-                .map(|ip| {
-                    self.ip_cidrs
-                        .iter()
-                        .any(|net| net.contains(&IpAddr::V4(ip)))
-                })
-                .unwrap_or(false);
+        let ip = ctx.destination.ip();
+        let ip_match = self.ip_cidrs.iter().any(|cidr| cidr.contains(&ip))
+            || match ip {
+                IpAddr::V6(v6) => v6
+                    .to_ipv4()
+                    .map(|v4| {
+                        self.ip_cidrs
+                            .iter()
+                            .any(|net| net.contains(&IpAddr::V4(v4)))
+                    })
+                    .unwrap_or(false),
+                IpAddr::V4(_) => false,
+            };
 
         let domain_match = ctx
             .domain
